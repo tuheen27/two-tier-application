@@ -311,4 +311,4 @@ This project is open-source and available under the MIT License.
 
 **Tuheen**
 - GitHub: [@tuheen27](https://github.com/tuheen27)
-- Repository: [two-tier-application](https://github.com/tuheen27/two-tier-
+- Repository: [two-tier-application](https://github.com/tuheen27/DevOps-Project-Two-Tier-Flask-App.git)

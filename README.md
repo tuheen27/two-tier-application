@@ -48,9 +48,10 @@ This is a **two-tier architecture** application:
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Python 3.x** - Programming language
+- **Python 3.11** - Programming language
 - **Flask 3.0.0** - Web framework
-- **MongoDB** - Document database (Docker container friendly)
+- **PyMongo 4.8.0** - MongoDB driver for Python
+- **MongoDB 7.0** - Document database with authentication
 
 ### Frontend
 - **HTML5** - Markup
@@ -69,26 +70,26 @@ two-tier-application/
 │
 ├── app.py                 # Main Flask application
 ├── requirements.txt       # Python dependencies
-├── Dockerfile            # Docker configuration
-├── Jenkinsfile           # Jenkins pipeline configuration
-├── README.md             # Project documentation
+├── Dockerfile             # Docker configuration
+├── docker-compose.yml     # Docker Compose orchestration
+├── Jenkinsfile            # Jenkins pipeline configuration
+├── README.md              # Project documentation
+├── .env                   # MongoDB connection settings
 │
-├── templates/
-│   └── index.html        # Frontend HTML form
-│
-└── .env                  # Environment overrides for Mongo settings
+└── templates/
+    └── index.html         # Frontend HTML form
 ```
 
 ## 📦 Prerequisites
 
 Before running this application, ensure you have:
 
-- **Python 3.8+** installed
+- **Python 3.11+** installed
 - **pip** (Python package manager)
-- **Docker** (optional, for containerized deployment)
+- **Docker & Docker Compose** for containerized deployment
+- **MongoDB** (running locally or in Docker with authentication)
 - **Jenkins** (optional, for CI/CD pipeline)
 - **Git** for version control
-- **MongoDB Docker image** (run `docker run -d -p 27017:27017 --name mongo mongo:6.0` or connect to any existing MongoDB instance)
 
 ## 🚀 Installation
 
@@ -112,16 +113,31 @@ The application will start on `http://localhost:5000`
 
 ## 🍃 MongoDB Setup
 
-Run MongoDB in Docker (default credentials not required for local dev):
+### Option 1: Use Existing MongoDB (Recommended)
+If you have MongoDB running with authentication:
+
+```bash
+# Check if MongoDB is running
+docker ps --filter "name=mongo"
+
+# Update .env file with your MongoDB credentials
+MONGO_HOST=localhost
+MONGO_PORT=27017
+MONGO_USERNAME=admin
+MONGO_PASSWORD=password123
+MONGO_AUTH_SOURCE=admin
+```
+
+### Option 2: Start New MongoDB Container
 
 ```bash
 docker run -d \
-  --name mongo \
+  --name mongodb \
   -p 27017:27017 \
-  mongo:6.0
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=password123 \
+  mongo:7.0
 ```
-
-> If you run MongoDB in another container network or an authenticated cluster, update the Mongo environment variables accordingly (see [Environment Variables](#-environment-variables)).
 
 ## 💻 Usage
 
@@ -142,33 +158,53 @@ curl http://localhost:5000/users
 
 ## 🐳 Docker Deployment
 
-### Build Docker Image
+### Using Docker Compose (Recommended)
+
+**Build and start all services:**
 ```bash
-docker build -t two-tier-app:latest .
+docker-compose up -d --build
 ```
 
-### Run Docker Container
+**View logs:**
 ```bash
-docker network create two-tier-net
-docker run -d --name mongo --network two-tier-net mongo:6.0
+docker-compose logs -f flask_app
+```
+
+**Stop services:**
+```bash
+docker-compose down
+```
+
+**Check status:**
+```bash
+docker-compose ps
+```
+
+### Manual Docker Commands
+
+**Build image:**
+```bash
+docker build -t flask-mongo-app:latest .
+```
+
+**Run container (connects to existing MongoDB):**
+```bash
 docker run -d \
   -p 5000:5000 \
-  --name flask-app \
-  --network two-tier-net \
-  -e MONGO_URI=mongodb://mongo:27017 \
-  two-tier-app:latest
+  --name flask_application \
+  --add-host=host.docker.internal:host-gateway \
+  -e MONGO_HOST=host.docker.internal \
+  -e MONGO_PORT=27017 \
+  -e MONGO_USERNAME=admin \
+  -e MONGO_PASSWORD=password123 \
+  -e MONGO_AUTH_SOURCE=admin \
+  flask-mongo-app:latest
 ```
 
 ### Access the Application
-```
-http://localhost:5000
-```
-
-### Stop and Remove Container
-```bash
-docker stop flask-app
-docker rm flask-app
-```
+- **Main App:** http://localhost:5000
+- **Health Check:** http://localhost:5000/health
+- **Users API:** http://localhost:5000/users
 
 ## 🔄 CI/CD Pipeline
 
@@ -242,13 +278,26 @@ Response (200):
   "success": true,
   "data": [
     {
-      "id": 1,
+      "id": "507f1f77bcf86cd799439011",
       "name": "John Doe",
       "email": "john@example.com",
       "phone": "1234567890",
-      "created_at": "2025-11-07 10:30:00"
+      "created_at": "2025-11-07T10:30:00.000000"
     }
   ]
+}
+```
+
+### 4. Health Check
+```
+GET /health
+
+Response (200):
+{
+  "status": "healthy",
+  "database": "flask_app",
+  "host": "localhost",
+  "port": 27017
 }
 ```
 
@@ -276,6 +325,11 @@ Each document in the `users` collection looks like:
 
 ### Test API with cURL
 
+**Health check:**
+```bash
+curl http://localhost:5000/health
+```
+
 **Submit a user:**
 ```bash
 curl -X POST http://localhost:5000/submit \
@@ -287,6 +341,11 @@ curl -X POST http://localhost:5000/submit \
 ```bash
 curl http://localhost:5000/users
 ```
+
+### Test with Browser
+1. Open http://localhost:5000
+2. Fill the form and submit
+3. Check http://localhost:5000/users to see all entries
 
 ## 🔧 Configuration
 
@@ -306,26 +365,32 @@ Edit `Dockerfile` to customize:
 
 ## 📝 Environment Variables
 
-Currently, the application uses default configurations. Override them with environment variables when deploying:
+The application reads configuration from `.env` file or environment variables:
 
+**MongoDB Connection:**
 ```bash
-export FLASK_ENV=production
-
-# Option 1: provide a full connection string (easiest for Mongo Atlas or auth-enabled Docker images)
-export MONGO_URI=mongodb://username:password@mongo:27017/?authSource=admin
-
-# Option 2: clear MONGO_URI and provide discrete connection pieces
-unset MONGO_URI
-export MONGO_HOST=mongo
-export MONGO_PORT=27017
-export MONGO_USERNAME=username
-export MONGO_PASSWORD=password
-export MONGO_AUTH_SOURCE=admin
-
-export MONGO_DB_NAME=flask_app
-export MONGO_COLLECTION_NAME=users
-export PORT=5000
+MONGO_HOST=localhost              # MongoDB host
+MONGO_PORT=27017                  # MongoDB port
+MONGO_USERNAME=admin              # MongoDB username
+MONGO_PASSWORD=password123        # MongoDB password
+MONGO_AUTH_SOURCE=admin           # Authentication database
+MONGO_DB_NAME=flask_app           # Target database name
+MONGO_COLLECTION_NAME=users       # Collection name
 ```
+
+**For Docker deployment:**
+```bash
+# Use host.docker.internal to connect to host MongoDB from container
+MONGO_HOST=host.docker.internal
+MONGO_PORT=27017
+MONGO_USERNAME=admin
+MONGO_PASSWORD=password123
+MONGO_AUTH_SOURCE=admin
+MONGO_DB_NAME=flask_app
+MONGO_COLLECTION_NAME=users
+```
+
+**Defaults:** The application includes sensible defaults for local development with authenticated MongoDB.
 
 ## 🤝 Contributing
 

@@ -1,6 +1,27 @@
-FROM python:alpine
+FROM python:3.11-slim
+
 WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
-RUN pip install -r requirements.txt
-CMD ["python", "app.py"]
+
+# Expose Flask port
 EXPOSE 5000
+
+# Environment variables with defaults (override with -e or docker-compose)
+ENV MONGO_HOST=localhost \
+    MONGO_PORT=27017 \
+    MONGO_USERNAME=admin \
+    MONGO_PASSWORD=password123 \
+    MONGO_AUTH_SOURCE=admin \
+    MONGO_DB_NAME=flask_app \
+    MONGO_COLLECTION_NAME=users
+
+# Run the Flask application
+CMD ["python", "app.py"]

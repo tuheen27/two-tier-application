@@ -42,8 +42,18 @@ pipeline {
             steps {
                 echo '========== Cleaning Up Old Test Containers =========='
                 sh """
-                    docker stop ${APP_CONTAINER} ${MONGO_CONTAINER} 2>/dev/null || true
-                    docker rm ${APP_CONTAINER} ${MONGO_CONTAINER} 2>/dev/null || true
+                    # Stop containers
+                    docker stop ${APP_CONTAINER} 2>/dev/null || true
+                    docker stop ${MONGO_CONTAINER} 2>/dev/null || true
+                    
+                    # Remove containers
+                    docker rm ${APP_CONTAINER} 2>/dev/null || true
+                    docker rm ${MONGO_CONTAINER} 2>/dev/null || true
+                    
+                    # Force remove if still exists
+                    docker rm -f ${APP_CONTAINER} 2>/dev/null || true
+                    docker rm -f ${MONGO_CONTAINER} 2>/dev/null || true
+                    
                     echo '✅ Old containers cleaned up'
                 """
             }

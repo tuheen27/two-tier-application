@@ -18,11 +18,21 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run -d --name test-app -p 5000:5000 tuheen27/two-tier-frontend-application:latest
+          docker run -d --name test-mongo -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password123 mongo:7.0
           sleep 5
+          docker run -d --name test-app -p 5000:5000 --link test-mongo:mongodb \
+            -e MONGO_HOST=test-mongo \
+            -e MONGO_PORT=27017 \
+            -e MONGO_USERNAME=admin \
+            -e MONGO_PASSWORD=password123 \
+            -e MONGO_AUTH_SOURCE=admin \
+            -e MONGO_DB_NAME=flask_app \
+            -e MONGO_COLLECTION_NAME=users \
+            tuheen27/two-tier-frontend-application:latest
+          sleep 10
           curl -f http://localhost:5000/health || exit 1
-          docker stop test-app
-          docker rm test-app
+          docker stop test-app test-mongo
+          docker rm test-app test-mongo
 
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
